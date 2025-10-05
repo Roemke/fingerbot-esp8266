@@ -6,7 +6,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 <head>
 <meta charset='utf-8'>
 <meta name='viewport' content='width=device-width'>
-<title>Rollo Steuerung</title>
+<title>Markisen Steuerung</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
   .tab { overflow: hidden; background-color: #333; }
@@ -41,7 +41,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 let gateway = `ws://${window.location.hostname}/ws`;
 let websocket;
 
-function setRolloState(state) 
+function setButtonState(state) 
 {
     // erst alle Buttons deaktivieren
     ["btnUp", "btnDown", "btnStop"].forEach(id => {
@@ -60,6 +60,16 @@ function setRolloState(state)
     }
 }
 
+function addLogLine(line) {
+    const logContainer = document.getElementById("logContainer");
+    if (!logContainer) return;
+
+    const div = document.createElement("div");
+    div.textContent = line;
+    logContainer.appendChild(div);
+    logContainer.scrollTop = logContainer.scrollHeight; // scrollt automatisch nach unten
+}
+
 function initWebSocket() {
     websocket = new WebSocket(gateway);
     websocket.onopen = () => console.log("WebSocket verbunden");
@@ -68,7 +78,33 @@ function initWebSocket() {
     websocket.onmessage = (e) => {
         console.log("Nachricht:", e.data);
         let data = JSON.parse(e.data);
-        if (data.action !== "rolloState") 
+        if (data.action === "init") 
+        {
+          // Initialdaten vom ESP: alle Werte auf einmal
+          // → in die UI eintragen
+          setButtonState(data.buttonState);
+
+          // Alle relevanten Slider/Felder setzen
+          [
+            "servoLeft","servoMiddle","servoRight",
+            "servoStopActive","servoStopInactive",
+            "timePress","servoPinUpDown","servoPinStop"
+          ].forEach(id => {
+              if (data[id] !== undefined) 
+              {
+                  const el = document.getElementById(id);
+                  const elVal = document.getElementById(id + "Val");
+                  if (el) el.value = data[id];
+                  if (elVal) elVal.innerText = data[id];
+              }
+          });
+          data.logs.forEach(line => addLogLine(line));
+        }
+        else if (data.action === "log") 
+        {
+          addLogLine(data.line);
+        }
+        else if (data.action !== "button") 
         {  
           const el = document.getElementById(data.action);//slider setzen
           const elVal = document.getElementById(data.action+"Val");//wert setzen
@@ -78,7 +114,7 @@ function initWebSocket() {
             el.value = data.value;
           }
         else
-          setRolloState(data.value);
+          setButtonState(data.value);
 
     };
 }
@@ -108,62 +144,82 @@ function openTab(evt, tabName) {
     evt.currentTarget.className += " active";
 }
 
-window.addEventListener("load", () => {
+function initUI() {
     initWebSocket();
     document.getElementById("defaultTab").click();
-    document.getElementById("btnUp").addEventListener("click", () => {
-        sendAction("rollo", "up");
-    });
-    document.getElementById("btnDown").addEventListener("click", () => {
-        sendAction("rollo", "down");
-    });
-    document.getElementById("btnStop").addEventListener("click", () => {
-        sendAction("rollo", "stop");
-    });
-    document.getElementById("btnUp").addEventListener("click", () => sendAction("rollo", "up"));
-    document.getElementById("btnDown").addEventListener("click", () => sendAction("rollo", "down"));
 
-    document.getElementById("servoLeft").addEventListener("change", e => sendAction("servoLeft", e.target.value));
-    document.getElementById("servoMiddle").addEventListener("change", e => sendAction("servoMiddle", e.target.value));
-    document.getElementById("servoRight").addEventListener("change", e => sendAction("servoRight", e.target.value));
-    document.getElementById("servoLeft").addEventListener("input", e => actualizeNumerics("servoLeft", e.target.value));
-    document.getElementById("servoMiddle").addEventListener("input", e => actualizeNumerics("servoMiddle", e.target.value));
-    document.getElementById("servoRight").addEventListener("input", e => actualizeNumerics("servoRight", e.target.value));
-    document.getElementById("servoPin").addEventListener("input", e => sendAction("servoPin", e.target.value));
-    document.getElementById("timeDown").addEventListener("change", e => sendAction("timeDown", e.target.value));
-    document.getElementById("timeUp").addEventListener("change", e => sendAction("timeUp", e.target.value)); 
-    document.getElementById("timeDown").addEventListener("input", e => actualizeNumerics("timeDown", e.target.value));
-    document.getElementById("timeUp").addEventListener("input", e => actualizeNumerics("timeUp", e.target.value)); 
+    // Buttons
+    ["btnUp", "btnStop", "btnDown"].forEach(btnId => {
+        const actionMap = { "btnUp":"up", "btnStop":"stop", "btnDown":"down" };
+        const btn = document.getElementById(btnId);
+        if (btn) btn.addEventListener("click", () => sendAction("button", actionMap[btnId]));
+    });
 
-    //fuer wlan setup
-    document.getElementById("btnWifiSave").addEventListener("click", () => {
-        const ssid = document.getElementById("wifiSsid").value;
-        const pass = document.getElementById("wifiPass").value;
-        sendAction("wifiSetCredentials", { ssid: ssid, password: pass });
+    // Slider
+    ["servoLeft","servoMiddle","servoRight","servoStopActive","servoStopInactive"].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", e =>  actualizeNumerics(id, e.target.value));        
+        el.addEventListener("input", e => sendAction(id, e.target.value));
+        
+    });
+
+    // Pins + Zeit
+    ["servoPinUpDown","servoPinStop","timePress"].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("change", e => sendAction(id, e.target.value));
+        if (id === "timePress") {
+            el.addEventListener("input", e => actualizeNumerics(id, e.target.value));
+        }
+    });
+
+    // WLAN speichern
+    const btnWifi = document.getElementById("btnWifiSave");
+    if (btnWifi) btnWifi.addEventListener("click", () => {
+        sendAction("wifiSetCredentials", {
+            ssid: document.getElementById("wifiSsid").value,
+            password: document.getElementById("wifiPass").value
+        });
         document.getElementById("wifiInfo").classList.remove("invisible");
     });
-});
+}
+window.addEventListener("load", initUI);
 </script>
 </head>
 
 <body>
 <div class="tab">
   <button class="tablink" id="defaultTab" onclick="openTab(event, 'steuerung')">Steuerung</button>
+  <button class="tablink" onclick="openTab(event, 'help')">Help</button>
   <button class="tablink" onclick="openTab(event, 'setup')">Setup</button>
   <button class="tablink" onclick="openTab(event, 'wifi')">WLAN</button>
 </div>
 
 <div id="steuerung" class="tabcontent">
-  <h2>Rollo Steuerung</h2>
-  <button class="btn" id="btnUp">Hoch</button>
+  <h2>Markise Steuerung</h2>
+  <button class="btn" id="btnUp">Markise rein</button>
   <button class="btn active" id="btnStop">Stop</button>
-  <button class="btn" id="btnDown">Runter</button>
+  <button class="btn" id="btnDown">Markise raus</button>
 </div>
+<div id="help" class="tabcontent">
+  <h2>Help</h2>
+  <p>Hier werden die Funktionen erklärt:</p>
+  <ul>
+    <li>Steuerung der Markise</li>
+    <li>Setup der Servo-Endpunkte</li>
+    <li>WLAN Konfiguration</li>
+    <li>OTA-Update über <a href="/update">diesen Link</a></li>
+  </ul>
 
+  <!-- Logs ans Ende des Help-Tabs -->
+  <h3>Log-Nachrichten</h3>
+  <div id="logContainer" style="height:300px; overflow:auto; background:#f0f0f0; padding:10px; font-family:monospace;"></div>
+</div>
 <div id="setup" class="tabcontent">
   <h2>Servo Setup</h2>
   <div class="slider-container">
-    <label for="servoLeft">Linke Endposition <span id="servoLeftVal">%SERVO_LEFT%</span></label>
+    <label for="servoLeft">Linke Endposition / down, Markise raus <span id="servoLeftVal">%SERVO_LEFT%</span></label>
     <input type="range" min="0" max="180" value="%SERVO_LEFT%" id="servoLeft">
   </div>
   <div class="slider-container">
@@ -171,20 +227,28 @@ window.addEventListener("load", () => {
     <input type="range" min="0" max="180" value="%SERVO_MIDDLE%" id="servoMiddle">
   </div>
   <div class="slider-container">
-    <label for="servoRight">Rechte Endposition <span id="servoRightVal">%SERVO_RIGHT%</span></label>
+    <label for="servoRight">Rechte Endposition / up, Markise rein <span id="servoRightVal">%SERVO_RIGHT%</span></label>
     <input type="range" min="0" max="180" value="%SERVO_RIGHT%" id="servoRight">
   </div>
   <div class="slider-container">
-    <label for="timeDown">Zeit Rollo runter (ms) <span id="timeDownVal">%TIME_DOWN%</span></label>
-    <input type="range" min="100" max="10000" value="%TIME_DOWN%" id="timeDown">
+    <label for="servoStopActive">Position Stop-Servo aktiv <span id="servoStopActiveVal">%SERVO_STOP_ACTIVE%</span></label>
+    <input type="range" min="0" max="180" value="%SERVO_STOP_ACTIVE%" id="servoStopActive">
   </div>
   <div class="slider-container">
-    <label for="timeUp">Zeit Rollo hoch (ms) <span id="timeUpVal">%TIME_UP%</span></label>
-    <input type="range" min="100" max="10000" value="%TIME_UP%" id="timeUp">
+    <label for="servoStopInactive">Position Stop-Servo inaktiv <span id="servoStopInActiveVal">%SERVO_STOP_INACTIVE%</span></label>
+    <input type="range" min="0" max="180" value="%SERVO_STOP_INACTIVE%" id="servoStopInactive">
   </div>
   <div class="slider-container">
-    <label for="servoPin">Servo Pin</label>
-    <input type="number" min="0" max="39" value="%SERVO_PIN%" id="servoPin">
+    <label for="timePress">Zeit Buttondruck (ms) <span id="timePressVal">%TIME_PRESS%</span></label>
+    <input type="range" min="100" max="5000" value="%TIME_PRESS%" id="timePress">
+  </div>
+  <div class="slider-container">
+    <label for="servoPinUpDown">Servo Pin Up/Down</label>
+    <input type="number" min="0" max="39" value="%SERVO_PIN_UPDOWN%" id="servoPinUpDown">
+  </div>
+  <div class="slider-container">
+    <label for="servoPinStop">Servo Pin Stop</label>
+    <input type="number" min="0" max="39" value="%SERVO_PIN_STOP%" id="servoPinStop">
   </div>
 </div>
 <div id="wifi" class="tabcontent">

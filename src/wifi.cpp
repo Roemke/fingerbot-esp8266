@@ -1,6 +1,7 @@
 #include "wifi.h"
-#include "defines.h"
-#include <EEPROM.h>
+#include "logging.h"
+
+#include <EEPROM.h> //lassen wir hier mal das EEPROM, es wir ja selten geschrieben.
 
 WifiData wifiData;
 
@@ -9,17 +10,20 @@ String wifiMacAp;
 String wifiMacSta;
 
 static void saveWifiData() {
+    EEPROM.begin(sizeof(WifiData));
     EEPROM.put(EEPROM_WIFI_ADDR, wifiData);
     EEPROM.commit();
 }
 
-bool loadWifiData() {      
+bool loadWifiData() 
+{      
+    EEPROM.begin(sizeof(WifiData));
     EEPROM.get(EEPROM_WIFI_ADDR, wifiData);
     if (wifiData.magic != 0x43) {
-        Serial.println("WiFi EEPROM leer, starte AP...");
+        logPrintln("WiFi EEPROM leer, starte AP...");
         return false;
     }
-    Serial.println("WiFi-Daten geladen.");
+    logPrintln("WiFi-Daten geladen.");
     return true;
 }
 
@@ -38,7 +42,7 @@ void wifiSetup() {
     wifiMacAp = WiFi.softAPmacAddress();
     wifiMacSta = WiFi.macAddress();
     delay(1000);
-    Serial.println("=== WiFi Reset ===")    ;
+    logPrintln("=== WiFi Reset ===")    ;
     
     // Kompletter Hardware-Reset des WiFi
     WiFi.disconnect(true);  // disconnect + disable STA
@@ -53,10 +57,10 @@ void wifiSetup() {
     yield();
     ESP.wdtFeed(); // Watchdog reset
     
-    Serial.printf("Heap nach Reset: %d\n", ESP.getFreeHeap());   
+    logPrintf("Heap nach Reset: %d\n", ESP.getFreeHeap());   
     delay(1000);
     if (loadWifiData()) {
-        Serial.printf("Verbinde mit WLAN %s ...\n", wifiData.ssid);
+        logPrintf("Verbinde mit WLAN %s ...\n", wifiData.ssid);
         WiFi.mode(WIFI_STA);
         WiFi.begin(wifiData.ssid, wifiData.password);
 
@@ -66,26 +70,26 @@ void wifiSetup() {
             Serial.print(".");
         }
         if (WiFi.status() == WL_CONNECTED) {
-            Serial.printf("\nVerbunden, IP: %s\n", WiFi.localIP().toString().c_str());
+            logPrintf("\nVerbunden, IP: %s\n", WiFi.localIP().toString().c_str());
             wifiMode = "client-Modus, IP " + WiFi.localIP().toString();
             return;
         }
     }
 
     // AP-Modus mit sauberem Start
-    Serial.println("Starte AP...");
+    logPrintln("Starte AP...");
     WiFi.mode(WIFI_OFF);
     delay(1000);
-    Serial.println("Vor dem setzen des AP-Modus");
+    logPrintln("Vor dem setzen des AP-Modus");
     WiFi.mode(WIFI_AP);
-    Serial.println("AP-Modus gesetzt");
+    logPrintln("AP-Modus gesetzt");
     delay(1000);
     
     // Vereinfachte AP-Konfiguration
     bool success = WiFi.softAP("Fingerbot");
-    Serial.printf("AP Erfolg: %d\n", success);
+    logPrintf("AP Erfolg: %d\n", success);
     delay(2000);
-    Serial.printf("AP IP: %s\n", WiFi.softAPIP().toString().c_str());
+    logPrintf("AP IP: %s\n", WiFi.softAPIP().toString().c_str());
     wifiMode = "AP-Modus, IP " + WiFi.softAPIP().toString();
 }
 

@@ -1,69 +1,32 @@
 //main.cpp
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h>
 #include <Hash.h>
-#include <Servo.h>
 #include <ArduinoJson.h>
-#include <EEPROM.h>
+#include <ElegantOTA.h>
 
+//#include <EEPROM.h> umgestellt auf littlefs
 // Eigene Header
 //#include "credentials.h" //fuer zuhause, eigentlich überflüssig mit wifi.h
 #include "indexHtmlJS.h"
-#include "servodata.h"
+#include "myServo.h"
 #include "wifi.h"
-#include "defines.h"
-
-
+#include "main.h"
+#include "logging.h"
 
 // ---- WebServer + WebSocket ----
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 
-static unsigned long rolloRollbackAt = 0;
+static unsigned long releaseButtonAt = 0;
+static unsigned long releaseStopButtonAt = 0;
 
-Servo myservo;
+//fuer das speichern 
+unsigned long lastSave = 0;
+const unsigned long SAVE_INTERVAL = 2000; // 2 Sekunden
+enum ButtonState { UP, DOWN, STOP, NONE };
+ButtonState buttonState = NONE;
 
-
-ServoData servoData;
-
-struct ServoControl {
-  int target = 90;     // Zielwinkel
-  int current = 90;    // aktueller Winkel
-  unsigned long lastMove = 0; // Zeit des letzten write
-  int moveInterval = 10;      // Millisekunden zwischen zwei Bewegungen
-} servo; 
-
-//langsamere Servo Bewegung
-void updateServo() {
-  unsigned long now = millis();
-  if (servo.current != servo.target && now - servo.lastMove >= servo.moveInterval) {
-      servo.lastMove = now;
-      if (servo.target > servo.current) servo.current++;
-      else if (servo.target < servo.current) servo.current--;
-      myservo.write(servo.current);
-  }
-}
-
-// Laden der Daten aus EEPROM
-void loadServoData() 
-{
-  EEPROM.begin(EEPROM_SIZE);
-  EEPROM.get(EEPROM_SERVO_ADDR, servoData);
-  if (servoData.magic != 0x42) 
-  {
-      Serial.println("EEPROM ungültig, Standardwerte setzen");
-      servoData = {0x42, 45, 90, 135, 1000, 1000, 14};
-      EEPROM.put(EEPROM_SERVO_ADDR, servoData);
-      EEPROM.commit();
-  } 
-  else 
-  {
-      Serial.println("EEPROM-Daten geladen");
-  }
-}
 
 //Prozessor um ggf. Werte zu setzen (webseite)
 String processor(const String& var)
@@ -78,12 +41,16 @@ String processor(const String& var)
     result = String(servoData.middle);
   else if (var == "SERVO_RIGHT") 
     result = String(servoData.right);
-  else if (var == "SERVO_PIN") 
-    result = String(servoData.servoPin);
-  else if (var == "TIME_DOWN") 
-    result = String(servoData.timeDown);
-  else if (var == "TIME_UP") 
-    result = String(servoData.timeUp); 
+  else if (var == "SERVO_STOP_ACTIVE") 
+    result = String(servoData.stopActive);
+  else if (var == "SERVO_STOP_INACTIVE") 
+    result = String(servoData.stopInactive);
+  else if (var == "TIME_PRESS") 
+    result = String(servoData.timePress);
+  else if (var == "SERVO_PIN_UPDOWN") 
+    result = String(servoData.servoPinUpDown);
+  else if (var == "SERVO_PIN_STOP") 
+    result = String(servoData.servoPinStop); 
   else if (var == "WIFI_MAC_AP")
     result = wifiMacAp;
   else if (var == "WIFI_MAC_STA")
@@ -93,6 +60,8 @@ String processor(const String& var)
   
   return result;
 }
+
+
 
 // ---- WebSocket Event Handler ----
 // Nachricht an alle Clients senden
@@ -108,11 +77,45 @@ void informClients(const String& action, T value)
   ws.textAll(msg);
 }
 
+
+void initialInformClient(AsyncWebSocketClient *client)
+{  
+  DynamicJsonDocument doc(8192);
+  doc["action"] = "init";
+  doc["servoLeft"] = servoData.left;
+  doc["servoMiddle"] = servoData.middle;
+  doc["servoRight"] = servoData.right;
+  doc["servoStopActive"] = servoData.stopActive;
+  doc["servoStopInactive"] = servoData.stopInactive;
+  doc["timePress"] = servoData.timePress;
+  doc["servoPinUpDown"] = servoData.servoPinUpDown;
+  doc["servoPinStop"] = servoData.servoPinStop;
+  doc["buttonState"] = (buttonState == UP) ? "up" :
+                        (buttonState == DOWN) ? "down" :
+                        (buttonState == STOP) ? "stop" : "none";
+
+  // Log-Array hinzufügen
+  JsonArray logArr = doc.createNestedArray("logs");
+  for (uint8_t i = 0; i < logCount; i++) {
+    uint8_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;
+    logArr.add(logBuffer[idx]);
+  }
+  String msg;
+  serializeJson(doc, msg);
+  client->text(msg);
+}
+
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
   AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
-  Serial.printf("ws-event, Heap: %d\n", ESP.getFreeHeap());
-  if(type != WS_EVT_DATA) 
+  logPrintf("ws-event, Heap: %d\n", ESP.getFreeHeap());
+  if (type == WS_EVT_CONNECT) 
+  {
+    logPrintf("📡 Client #%u verbunden\n", client->id());
+    // Aktuellen Status senden
+    initialInformClient(client);
+  }
+  else if(type != WS_EVT_DATA) 
     return;
 
   AwsFrameInfo *info = (AwsFrameInfo*)arg;
@@ -127,51 +130,44 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
   if(error) 
   {
     Serial.print("JSON Fehler: ");
-    Serial.println(error.c_str());
+    logPrintln(error.c_str());
     return;
   }
 
   String action = doc["action"];
   JsonVariant value = doc["value"];
-
-  if (action == "servoLeft")      
-    servoData.left   = value.as<int>();
-  else if(action == "servoMiddle") 
-    servoData.middle = value.as<int>();
-  else if(action == "servoRight")
-    servoData.right  = value.as<int>();
-  else if(action == "servoPin")
-    servoData.servoPin = value.as<int>();
-  else if(action == "timeDown")
-    servoData.timeDown = value.as<int>();
-  else if(action == "timeUp")
-    servoData.timeUp = value.as<int>();
-  else if (action == "rollo") //buttons up/down
+  logPrintf("Aktion: %s, Wert: %s\n", action.c_str(), value.as<String>().c_str());
+   
+  if (action == "button") // buttons up/down/stop
   {
-      if (value.as<String>() == "up")
+      String btn = value.as<String>();
+      if(btn == "stop")
       {
-          servo.target = servoData.right;
-          informClients("rolloState", "up");
-          rolloRollbackAt = millis() + servoData.timeUp;
+          // Zuerst Up/Down-Servo auf Mittel
+          servoUpDown.target = servoData.middle;
+          releaseButtonAt = 0; // keine automatische Rücksetzung, er ist in der Mitte, drückt also nicht
+          // Dann Stop-Servo aktivieren
+          servoStop.target = servoData.stopActive;
+          releaseStopButtonAt = millis() + servoData.timePress;
+          buttonState = STOP;
       }
-      else if (value.as<String>() == "down")
+      else // up oder down
       {
-          servo.target = servoData.left;
-          informClients("rolloState", "down");
-          rolloRollbackAt = millis() + servoData.timeDown;
+          // Stop-Servo vorher deaktivieren
+          servoStop.target = servoData.stopInactive;
+          releaseStopButtonAt = 0;
+          servoUpDown.target = (btn == "up") ? servoData.right : servoData.left;
+          buttonState = (btn == "up") ? UP : DOWN;
+          releaseButtonAt = millis() + servoData.timePress;
       }
-      else if (value.as<String>() == "stop" || value.as<String>() == "middle")
-      {
-          servo.target = servoData.middle;
-          informClients("rolloState", "middle");
-          rolloRollbackAt = millis() + servoData.timeDown;
-      }
-  }
+      informClients(action, value);
+
+  }        
   else if (action == "wifiSetCredentials")
   {
       String ssid = value["ssid"] | "";
       String pass = value["password"] | "";
-      Serial.printf("Neue WiFi Daten: SSID=%s, PASS=%s\n", ssid.c_str(), pass.c_str());
+      logPrintf("Neue WiFi Daten: SSID=%s, PASS=%s\n", ssid.c_str(), pass.c_str());
       if (ssid.length() > 0)
       {
           wifiSetCredentials(ssid.c_str(), pass.c_str());
@@ -179,44 +175,90 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           ESP.restart();  // Neustart mit neuen Daten
       }
   }
-      
-
-  if (action == "servoLeft" || action == "servoMiddle" || action == "servoRight") 
-    servo.target = value.as<int>();
-  // Hier EEPROM schreiben
-  EEPROM.put(EEPROM_SERVO_ADDR, servoData);
-  EEPROM.commit();
-  informClients(action, value);
+  else //slider im Setup bewegt -> setup der Servopositionen
+  {
+    if (action == "servoLeft")      
+      servoData.left   = value.as<int>();
+    else if(action == "servoMiddle") 
+      servoData.middle = value.as<int>();
+    else if(action == "servoRight")
+      servoData.right  = value.as<int>();
+    else if(action == "servoStopActive")
+      servoData.stopActive  = value.as<int>();
+    else if(action == "servoStopInactive")
+      servoData.stopInactive  = value.as<int>();
+    else if(action == "servoPinUpDown")
+      servoData.servoPinUpDown = value.as<int>();
+    else if(action == "servoPinStop")
+      servoData.servoPinStop = value.as<int>();
+    else if(action == "timePress")
+      servoData.timePress = value.as<int>();
+    if (action == "servoLeft" || action == "servoMiddle" || action == "servoRight" )
+      servoUpDown.target = value.as<int>();
+    else if (action == "servoStopActive" || action == "servoStopInactive")
+      servoStop.target = value.as<int>();
+    informClients(action, value);
+  }      
 }
 
 
-
-void setup() {
-  Serial.begin(115200);
-  loadServoData(); 
-  wifiSetup();
-
+void setupOTA() {
+  ElegantOTA.begin(&server); // Startet ElegantOTA  
   
+  ElegantOTA.onStart([]() {
+    logPrintln("OTA Start");
+  });
+
+  ElegantOTA.onEnd([](bool success) {
+    success ? logPrintln("OTA Ende, Neustart...") : logPrintln("OTA Ende mit Fehler");
+    success ? ESP.restart() : logPrintln("Kein Neustart");   
+  });
+
+  ElegantOTA.onProgress([](unsigned int progress, unsigned int total) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "OTA Fortschritt: %u/%u", progress, total);
+    logPrintln(buf);
+    informClients("ota", buf);
+  });
+  
+  logBufferAdd("🌐 OTA Update verfügbar unter /update");
+}
+
+void setupWebsocket()
+{
   // WebSocket einbinden
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
 
-  //lustig, ich bin alt,  [] leitet einen Lambda Ausdruck ein, also eine anonyme Funktion
-  //die gabs frueher nicht :-), dafür mehr Lametta
+  // lustig, ich bin alt,  [] leitet einen Lambda Ausdruck ein, also eine anonyme Funktion
+  // die gabs frueher nicht :-), dafür mehr Lametta
   server.on("/favicon.ico", [](AsyncWebServerRequest *request)
-  {
-    request->send(204);//no content
-  });
+            {
+              request->send(204); // no content
+            });
 
   // Hauptseite
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send_P(200, "text/html", index_html,processor);
-  });
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send_P(200, "text/html", index_html, processor); });
+}
 
-  server.begin();
-  Serial.println("HTTP-Server gestartet");
-  myservo.attach(servoData.servoPin, 500, 2500); // Pin, min, max
-  Serial.println("Servo initialisiert"); 
+
+// ---- Setup und Loop ----
+void setup()
+{
+  Serial.begin(115200);
+  
+  loadServoData(); 
+  initializeServos();
+  wifiSetup();
+
+  // OTA einrichten
+   setupOTA();
+
+   setupWebsocket();
+
+   server.begin();
+   logPrintln("HTTP-Server gestartet");
 }
 
 void loop() 
@@ -224,10 +266,24 @@ void loop()
   
   updateServo();
   ws.cleanupClients();
-  if (rolloRollbackAt > 0 && millis() >= rolloRollbackAt)
+  //ElegantOTA.loop(); nur wenn blockierend, hier nicht nötig da Async
+
+  if (releaseButtonAt > 0 && millis() >= releaseButtonAt)
   {
-      rolloRollbackAt = 0;
-      servo.target = servoData.middle;
-      informClients("rolloState", "middle");
-  }   
+      releaseButtonAt = 0;
+      servoUpDown.target = servoData.middle;   
+      buttonState = NONE;   
+  }
+  if (releaseStopButtonAt > 0 && millis() >= releaseStopButtonAt) 
+  {
+    releaseStopButtonAt = 0;
+    servoStop.target = servoData.stopInactive;
+    buttonState = NONE;
+  }
+  checkServoDataChanged();
+  if (servoDataChanged && millis() - lastSave >= SAVE_INTERVAL) {
+    lastSave = millis();
+    saveServoData();
+    servoDataChanged = false;
+  }  
 }

@@ -4,7 +4,7 @@ Ein DIY-Projekt, um einen Servo über einen ESP8266 (z. B. Wemos D1 mini) als **
 Über ein Webinterface können die Servo-Positionen eingestellt, Rollos hoch/runter bewegt und WLAN-Einstellungen gespeichert werden.  
 Gehäuse lässt sich selbst drucken (mein Blenderversuch ist nicht zum
 weitergeben geeignet...), Servo ist Miuzei Micro Servo 9g MS18.
-
+Ist gescheitert, servo war zu schwach, daher mal weiter verwendet und für eine Fernbedienung von Heim und Haus / Somfy IO verwendet, mal sehen, ob es reicht. 
 
 ---
 
