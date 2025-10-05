@@ -74,18 +74,24 @@ Konstruktionsfehler, servos zu eng ... :-(
 ---
 
 ## ⚙️ Projektstruktur
-
-```
-src/
- ├── main.cpp        # Hauptlogik (Servo, Webserver, WebSocket)
- ├── servodata.h/.cpp # EEPROM-Handling für Servodaten
- ├── wifi.h/.cpp      # WLAN-Setup & Speicherung im EEPROM
- ├── defines.h        # EEPROM-Adressen & globale Defines
- └── ...
-data/                 # Webinterface (HTML/JS/CSS)
-```
-
----
+Hatte ich generieren lassen, stimmt nicht... besser doch tree :-)
+├── include
+│   ├── credentials.h
+│   ├── credentials_template.h
+│   ├── indexHtmlJS.h
+│   ├── logging.h
+│   ├── main.h
+│   ├── myServo.h
+│   ├── README
+│   └── wifi.h
+├── platformio.ini
+├── readme.md
+├── src
+│   ├── logging.cpp
+│   ├── main.cpp
+│   ├── myServo.cpp
+│   └── wifi.cpp
+usw
 
 ## 🚀 Roadmap
 
