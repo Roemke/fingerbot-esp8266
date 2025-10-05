@@ -75,23 +75,23 @@ Konstruktionsfehler, servos zu eng ... :-(
 
 ## ⚙️ Projektstruktur
 Hatte ich generieren lassen, stimmt nicht... besser doch tree :-)
-├── include
-│   ├── credentials.h
-│   ├── credentials_template.h
-│   ├── indexHtmlJS.h
-│   ├── logging.h
-│   ├── main.h
-│   ├── myServo.h
-│   ├── README
-│   └── wifi.h
-├── platformio.ini
-├── readme.md
-├── src
-│   ├── logging.cpp
-│   ├── main.cpp
-│   ├── myServo.cpp
-│   └── wifi.cpp
-usw
+├── include  
+│   ├── credentials.h  
+│   ├── credentials_template.h  
+│   ├── indexHtmlJS.h  
+│   ├── logging.h  
+│   ├── main.h  
+│   ├── myServo.h  
+│   ├── README  
+│   └── wifi.h  
+├── platformio.ini  
+├── readme.md  
+├── src  
+│   ├── logging.cpp  
+│   ├── main.cpp  
+│   ├── myServo.cpp  
+│   └── wifi.cpp  
+usw  
 
 ## 🚀 Roadmap
 
