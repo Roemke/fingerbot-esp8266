@@ -1,4 +1,4 @@
-# Fingerbot ESP8266
+# Fingerbot ESP8266  
 
 Ein DIY-Projekt, um einen Servo über einen ESP8266 (z. B. Wemos D1 mini) als **Fingerbot** zu betreiben.  
 Über ein Webinterface können die Servo-Positionen eingestellt, Markises rein/raus bewegt und WLAN-Einstellungen gespeichert werden.  
