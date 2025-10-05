@@ -74,7 +74,7 @@ Konstruktionsfehler, servos zu eng ... :-(
 ---
 
 ## ⚙️ Projektstruktur
-Hatte ich generieren lassen, stimmt nicht... besser doch tree :-)
+Hatte ich generieren lassen, stimmt nicht... besser doch tree :-)  
 ├── include  
 │   ├── credentials.h  
 │   ├── credentials_template.h  
