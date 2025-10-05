@@ -1,17 +1,18 @@
 # Fingerbot ESP8266
 
 Ein DIY-Projekt, um einen Servo über einen ESP8266 (z. B. Wemos D1 mini) als **Fingerbot** zu betreiben.  
-Über ein Webinterface können die Servo-Positionen eingestellt, Rollos hoch/runter bewegt und WLAN-Einstellungen gespeichert werden.  
+Über ein Webinterface können die Servo-Positionen eingestellt, Markises rein/raus bewegt und WLAN-Einstellungen gespeichert werden.  
 Gehäuse lässt sich selbst drucken (mein Blenderversuch ist nicht zum
 weitergeben geeignet...), Servo ist Miuzei Micro Servo 9g MS18.
 Ist gescheitert, servo war zu schwach, daher mal weiter verwendet und für eine Fernbedienung von Heim und Haus / Somfy IO verwendet, mal sehen, ob es reicht. 
-
+BlenderVersuch neu gemacht, jetzt für die Markise
+Konstruktionsfehler, servos zu eng ... :-(
 ---
 
 ## ✨ Features
 
 - Steuerung eines Servos über Webinterface (3 Positionen: `left`, `middle`, `right`)
-- Buttons für **Rollo hoch / runter / stop**
+- Buttons für **Rollo hoch / runter / stop** inzwischen auf up / down
 - Konfiguration von:
   - Servo-Endpositionen (`left`, `middle`, `right`)
   - Zeiten für Bewegungen (`timeDown`, `timeUp`), danach wieder middle-Position
@@ -88,11 +89,11 @@ data/                 # Webinterface (HTML/JS/CSS)
 
 ## 🚀 Roadmap
 
-- [x] Servo-Steuerung mit Slidern
-- [x] Buttons für Rollo-Steuerung
-- [x] EEPROM-Persistenz (Servo- & WLAN-Daten)
+- [x] Servo-Steuerung mit Slidern, zum einstellen
+- [x] Buttons für Markise-Steuerung
+- [x] EEPROM/FS-Persistenz (Servo- & WLAN-Daten)
 - [x] Access Point bei fehlender Konfiguration
-- [ ] OTA-Update via Webinterface
+- [x] OTA-Update via Webinterface
 
 ---
 
