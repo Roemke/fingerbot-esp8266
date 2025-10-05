@@ -7,7 +7,7 @@ weitergeben geeignet...), Servo ist Miuzei Micro Servo 9g MS18.
 Ist gescheitert, servo war zu schwach, daher mal weiter verwendet und für eine Fernbedienung von Heim und Haus / Somfy IO verwendet, mal sehen, ob es reicht. 
 BlenderVersuch neu gemacht, jetzt für die Markise
 Konstruktionsfehler, servos zu eng ... :-(
----
+
 
 ## ✨ Features
 
