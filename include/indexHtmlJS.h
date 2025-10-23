@@ -240,7 +240,7 @@ window.addEventListener("load", initUI);
   </div>
   <div class="slider-container">
     <label for="timePress">Zeit Buttondruck (ms) <span id="timePressVal">%TIME_PRESS%</span></label>
-    <input type="range" min="100" max="5000" value="%TIME_PRESS%" id="timePress">
+    <input type="range" min="1" max="5000" value="%TIME_PRESS%" id="timePress">
   </div>
   <div class="slider-container">
     <label for="servoPinUpDown">Servo Pin Up/Down</label>

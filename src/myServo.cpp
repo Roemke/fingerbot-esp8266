@@ -21,22 +21,27 @@ ServoControl servoUpDown,servoStop;
 
 
 //langsamere Servo Bewegung
-void updateServo() {
+void updateServo(unsigned long &releaseButtonAt, unsigned long &releaseStopButtonAt) {
   unsigned long now = millis();  
   
   if (servoUpDown.current != servoUpDown.target && now - servoUpDown.lastMove >= servoUpDown.moveInterval) {
       servoUpDown.lastMove = now;
       if (servoUpDown.target > servoUpDown.current) servoUpDown.current++;
-      else if (servoUpDown.target < servoUpDown.current) servoUpDown.current--;
-      //logPrintf("write UpDown: %d -> %d\n", servoUpDown.current, servoUpDown.target);
+      else if (servoUpDown.target < servoUpDown.current) servoUpDown.current--;      
+      //logPrintf("write UpDown: %d -> %d\n", servoUpDown.current, servoUpDown.target);      
       myServoUpDown.write(servoUpDown.current);
+      if (servoUpDown.current == servoUpDown.target)
+        releaseButtonAt = millis() + servoData.timePress;
+  
   }
   if (servoStop.current != servoStop.target && now - servoStop.lastMove >= servoStop.moveInterval) {
       servoStop.lastMove = now;
       if (servoStop.target > servoStop.current) servoStop.current++;
-      else if (servoStop.target < servoStop.current) servoStop.current--;
+      else if (servoStop.target < servoStop.current) servoStop.current--;      
       //logPrintf("Write Stop: %d -> %d\n", servoStop.current, servoStop.target);
       myServoStop.write(servoStop.current);      
+      if (servoStop.current == servoStop.target)
+        releaseStopButtonAt = millis() + servoData.timePress;
   }   
 }
 

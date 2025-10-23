@@ -149,7 +149,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           releaseButtonAt = 0; // keine automatische Rücksetzung, er ist in der Mitte, drückt also nicht
           // Dann Stop-Servo aktivieren
           servoStop.target = servoData.stopActive;
-          releaseStopButtonAt = millis() + servoData.timePress;
+          //releaseStopButtonAt = millis() + servoData.timePress; nein, dann spielt der Servo-Weg eine Rolle
           buttonState = STOP;
           lastAction = STOPPEN;
       }
@@ -161,7 +161,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           servoUpDown.target = (btn == "up") ? servoData.right : servoData.left;
           buttonState = (btn == "up") ? UP : DOWN;
           lastAction = (btn == "up") ? REIN : RAUS;
-          releaseButtonAt = millis() + servoData.timePress;
+          //releaseButtonAt = millis() + servoData.timePress; - nein, das ist dann vom Weg des Servos abhängig
       }
       informClients(action, value);
 
@@ -279,7 +279,7 @@ void setup()
 void loop() 
 {
   
-  updateServo();
+  updateServo(releaseButtonAt, releaseStopButtonAt);
   ws.cleanupClients();
   //ElegantOTA.loop(); nur wenn blockierend, hier nicht nötig da Async
 

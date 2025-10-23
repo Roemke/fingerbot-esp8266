@@ -28,10 +28,11 @@ struct ServoData {
   extern bool servoDataChanged;
 
   // Function declarations extracted from the file
-  void updateServo();
+  void updateServo(unsigned long &releaseButtonAt, unsigned long &releaseStopButtonAt);
   void checkServoDataChanged();
   void saveServoData();
   void loadServoData();
   void initializeServos();
+  
 
 #endif
