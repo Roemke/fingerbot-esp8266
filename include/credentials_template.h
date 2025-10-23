@@ -11,4 +11,4 @@
 //der broker, momentan nicht genutzt
 #define mqttBROKER "192.168.x.x"
 #define mqttPORT 1883 //ist der Standard
-//der broker, brauche ich einen - nein ich denke kein mqtt hier
+//der broker, brauche ich einen - nein ich denke kein mqtt hier, gehe über json

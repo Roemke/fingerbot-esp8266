@@ -24,9 +24,10 @@ static unsigned long releaseStopButtonAt = 0;
 //fuer das speichern 
 unsigned long lastSave = 0;
 const unsigned long SAVE_INTERVAL = 2000; // 2 Sekunden
-enum ButtonState { UP, DOWN, STOP, NONE };
+enum ButtonState { UP, DOWN, STOP, NONE }; //up ist rein, down ist raus
 ButtonState buttonState = NONE;
-
+enum LastAction {RAUS,REIN,STOPPEN,KEINE};
+LastAction lastAction = KEINE;
 
 //Prozessor um ggf. Werte zu setzen (webseite)
 String processor(const String& var)
@@ -68,7 +69,7 @@ String processor(const String& var)
 template <typename T>
 void informClients(const String& action, T value) 
 {
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   doc["action"] = action;
   doc["value"] = value;   // JsonVariant nimmt String oder int
 
@@ -80,7 +81,7 @@ void informClients(const String& action, T value)
 
 void initialInformClient(AsyncWebSocketClient *client)
 {  
-  DynamicJsonDocument doc(8192);
+  JsonDocument doc;
   doc["action"] = "init";
   doc["servoLeft"] = servoData.left;
   doc["servoMiddle"] = servoData.middle;
@@ -95,7 +96,7 @@ void initialInformClient(AsyncWebSocketClient *client)
                         (buttonState == STOP) ? "stop" : "none";
 
   // Log-Array hinzufügen
-  JsonArray logArr = doc.createNestedArray("logs");
+  JsonArray logArr = doc["logs"].to<JsonArray>();
   for (uint8_t i = 0; i < logCount; i++) {
     uint8_t idx = (logIndex + LOG_BUFFER_SIZE - logCount + i) % LOG_BUFFER_SIZE;
     logArr.add(logBuffer[idx]);
@@ -124,8 +125,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
   data[len] = 0; // Nullterminator
   String msg = (char*)data;
 
-  // StaticJsonDocument mit ausreichendem Puffer
-  StaticJsonDocument<256> doc;
+  // StaticJsonDocument mit ausreichendem Puffer, deprecated sollte reichen ein JsonDocument zu nehmen
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, msg);
   if(error) 
   {
@@ -150,6 +151,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           servoStop.target = servoData.stopActive;
           releaseStopButtonAt = millis() + servoData.timePress;
           buttonState = STOP;
+          lastAction = STOPPEN;
       }
       else // up oder down
       {
@@ -158,6 +160,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           releaseStopButtonAt = 0;
           servoUpDown.target = (btn == "up") ? servoData.right : servoData.left;
           buttonState = (btn == "up") ? UP : DOWN;
+          lastAction = (btn == "up") ? REIN : RAUS;
           releaseButtonAt = millis() + servoData.timePress;
       }
       informClients(action, value);
@@ -240,6 +243,18 @@ void setupWebsocket()
   // Hauptseite
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send_P(200, "text/html", index_html, processor); });
+  //jsonDaten abfragen - liefert hier zunächst letzter Stand, später evtl. reedKontakt abfragen
+  server.on("/getData", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+              JsonDocument doc;
+              doc["lastAction"] = (lastAction == RAUS) ? "raus" :
+                                  (lastAction == REIN) ? "rein" :
+                                  (lastAction == STOPPEN) ? "stoppen" : "keine";
+
+              String response;
+              serializeJson(doc, response);
+              request->send(200, "application/json", response);
+            });
 }
 
 
