@@ -8,7 +8,7 @@
 //ohne passwort
 #define apPASSWORD "wiederGeheim"
 
-//der broker, momentan nicht genutzt
+//der broker, Voreinstellung
 #define mqttBROKER "192.168.x.x"
 #define mqttPORT 1883 //ist der Standard
-//der broker, brauche ich einen - nein ich denke kein mqtt hier, gehe über json
+//der broker, doch, für fhem einfacher per mqtt

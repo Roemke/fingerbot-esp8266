@@ -12,6 +12,7 @@
 #include "wifi.h"
 #include "main.h"
 #include "logging.h"
+#include "mqtt.h"
 
 // ---- WebServer + WebSocket ----
 AsyncWebServer server(80);
@@ -58,6 +59,10 @@ String processor(const String& var)
     result = wifiMacSta;
   else if (var == "WIFI_MAC_MODE")
     result = wifiMode;
+  else if (var == "MQTT_BROKER")
+    result = mqtt.broker;
+  else if (var == "MQTT_PORT")
+    result = String(mqtt.port);
   
   return result;
 }
@@ -122,12 +127,12 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
   AwsFrameInfo *info = (AwsFrameInfo*)arg;
   if(!info->final || info->index != 0 || info->len != len || info->opcode != WS_TEXT) return;
 
-  data[len] = 0; // Nullterminator
-  String msg = (char*)data;
+  
+  
 
   // StaticJsonDocument mit ausreichendem Puffer, deprecated sollte reichen ein JsonDocument zu nehmen
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, msg);
+  DeserializationError error = deserializeJson(doc, data,len);
   if(error) 
   {
     Serial.print("JSON Fehler: ");
@@ -135,7 +140,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
     return;
   }
 
-  String action = doc["action"];
+  String action = doc["action"] | "";
   JsonVariant value = doc["value"];
   logPrintf("Aktion: %s, Wert: %s\n", action.c_str(), value.as<String>().c_str());
    
@@ -160,9 +165,14 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           releaseStopButtonAt = 0;
           servoUpDown.target = (btn == "up") ? servoData.right : servoData.left;
           buttonState = (btn == "up") ? UP : DOWN;
-          lastAction = (btn == "up") ? REIN : RAUS;
+          lastAction = (btn == "up") ? REIN : RAUS;          
           //releaseButtonAt = millis() + servoData.timePress; - nein, das ist dann vom Weg des Servos abhängig
       }
+
+      String lastActionString = (lastAction == RAUS) ? "raus" :
+                                  (lastAction == REIN) ? "rein" :
+                                  (lastAction == STOPPEN) ? "stoppen" : "keine";
+      mqtt.publishLastCmd(lastActionString); // MQTT informieren
       informClients(action, value);
 
   }        
@@ -176,6 +186,19 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           wifiSetCredentials(ssid.c_str(), pass.c_str());
           informClients("wifiState", "saved");
           ESP.restart();  // Neustart mit neuen Daten
+      }
+  }
+  else if (action == "mqttSet")
+  {
+      String broker = value["broker"] | "";
+      int port = value["port"] | 1883;
+      logPrintf("Neue MQTT Daten: BROKER=%s, PORT=%d\n", broker.c_str(), port);
+      if (broker.length() > 0)
+      {
+          mqtt.broker = broker;
+          mqtt.port = port;
+          mqtt.saveConfig();          
+          // Kein Neustart notwendig, MQTT-Verbindung wird neu initialisiert
       }
   }
   else //slider im Setup bewegt -> setup der Servopositionen
@@ -257,13 +280,49 @@ void setupWebsocket()
             });
 }
 
+void onMqttCommand(const String& cmd)
+{
+    logPrintf("MQTT Befehl empfangen: %s\n", cmd.c_str());
+    
+    if (cmd == "up" || cmd == "rein" || cmd == "in")
+    {
+        servoUpDown.target = servoData.right;
+        buttonState = UP;
+        lastAction = REIN;
+        informClients("button", "up");
+    }
+    else if (cmd == "down" || cmd == "raus" || cmd == "out")
+    {
+        servoUpDown.target = servoData.left;
+        buttonState = DOWN;
+        lastAction = RAUS;
+        informClients("button", "down");
+    }
+    else if (cmd == "stop")
+    {
+        // Zuerst Up/Down-Servo auf Mittel  
+        servoUpDown.target = servoData.middle;
+        // Dann Stop-Servo aktivieren
+        servoStop.target = servoData.stopActive;
+        buttonState = STOP;
+        lastAction = STOPPEN;
+        informClients("button", "stop");
+    }
+    String lastActionString = (lastAction == RAUS) ? "raus" :
+                                  (lastAction == REIN) ? "rein" :
+                                  (lastAction == STOPPEN) ? "stoppen" : "keine"; 
+    mqtt.publishLastCmd(lastActionString); // MQTT informieren
 
-// ---- Setup und Loop ----
+        
+  }
+// ---- Setup und Loop ----     
 void setup()
 {
   Serial.begin(115200);
-  
+  LittleFS.begin();
   loadServoData(); 
+
+
   initializeServos();
   wifiSetup();
 
@@ -274,6 +333,12 @@ void setup()
 
    server.begin();
    logPrintln("HTTP-Server gestartet");
+
+   // MQTT initialisieren
+    mqtt.loadConfig();
+    mqtt.begin();    
+    mqtt.setOnCmd(onMqttCommand); // keine Befehle vom MQTT-Server
+    
 }
 
 void loop() 
@@ -301,4 +366,6 @@ void loop()
     saveServoData();
     servoDataChanged = false;
   }  
+
+  mqtt.poll();
 }

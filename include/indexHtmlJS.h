@@ -11,7 +11,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
   .tab { overflow: hidden; background-color: #333; }
   .tab button {
-    background-color: inherit; float: left; border: none; outline: none;
+    background-color: inherit; border: none; outline: none;
     cursor: pointer; padding: 14px 16px; color: white;
   }
   .tab button:hover { background-color: #555; }
@@ -34,12 +34,15 @@ const char index_html[] PROGMEM = R"rawliteral(
     border: 10px inset #004000;
     margin-top: 10px;
   }  
+  div {
+    margin-bottom: 10px;
+  }
 
 </style>
 
 <script>
 let gateway = `ws://${window.location.hostname}/ws`;
-let websocket;
+let websocket = null;
 
 function setButtonState(state) 
 {
@@ -71,9 +74,12 @@ function addLogLine(line) {
 }
 
 function initWebSocket() {
+    if (websocket && (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
     websocket = new WebSocket(gateway);
     websocket.onopen = () => console.log("WebSocket verbunden");
-    websocket.onclose = () => setTimeout(initWebSocket, 2000);
+    websocket.onclose = () => {websocket = null; setTimeout(initWebSocket, 3000);};
 
     websocket.onmessage = (e) => {
         console.log("Nachricht:", e.data);
@@ -183,6 +189,14 @@ function initUI() {
         });
         document.getElementById("wifiInfo").classList.remove("invisible");
     });
+    // MQTT speichern
+    const btnMqtt = document.getElementById("btnMqttSave");
+    if (btnMqtt) btnMqtt.addEventListener("click", () => {
+        sendAction("mqttSet", {
+            broker: document.getElementById("mqttBroker").value,
+            port: document.getElementById("mqttPort").value
+        });
+    });
 }
 window.addEventListener("load", initUI);
 </script>
@@ -193,7 +207,7 @@ window.addEventListener("load", initUI);
   <button class="tablink" id="defaultTab" onclick="openTab(event, 'steuerung')">Steuerung</button>
   <button class="tablink" onclick="openTab(event, 'help')">Help</button>
   <button class="tablink" onclick="openTab(event, 'setup')">Setup</button>
-  <button class="tablink" onclick="openTab(event, 'wifi')">WLAN</button>
+  <button class="tablink" onclick="openTab(event, 'wifi')">Netz</button>
 </div>
 
 <div id="steuerung" class="tabcontent">
@@ -204,11 +218,11 @@ window.addEventListener("load", initUI);
 </div>
 <div id="help" class="tabcontent">
   <h2>Help</h2>
-  <p>Hier werden die Funktionen erklärt:</p>
+  <p>Folgende Funktionen existiereen:</p>
   <ul>
     <li>Steuerung der Markise</li>
     <li>Setup der Servo-Endpunkte</li>
-    <li>WLAN Konfiguration</li>
+    <li>WLAN / MQTT Konfiguration</li>
     <li>OTA-Update über <a href="/update">diesen Link</a></li>
   </ul>
 
@@ -264,12 +278,23 @@ window.addEventListener("load", initUI);
     <label for="wifiPass">Passwort</label>
     <input type="password" id="wifiPass" placeholder="Passwort">
   </div>
-  <button class="btn" id="btnWifiSave">Speichern</button>
+  <button class="btn" id="btnWifiSave">Wifi Speichern</button>
   <div class="infoField invisible" id="wifiInfo">
     <strong>Daten übermittelt.</strong><br>  
     <strong>Hinweis:</strong> Nach dem Speichern der WLAN-Daten muss der ESP neu gestartet werden, 
     in der Regel geschieht dies automatisch.  Bitte ansonsten den ESP manuell neu starten.  
   </div>
+  <h2>MQTT Konfiguration</h2>
+  <div>
+    <label for="mqttBroker">MQTT-Broker</label>
+    <input type="text" id="mqttBroker" value="%MQTT_BROKER%" placeholder="MQTT-Broker Adresse">
+  </div>
+  <div>
+    <label for="mqttPort">MQTT-Port</label>
+    <input type="text" id="mqttPort" value="%MQTT_PORT%" placeholder="1883">
+  </div>
+  <button class="btn" id="btnMqttSave">MQTT Speichern</button>
+  <div>ein Neustart ist nicht notwendig, die Verbindung wird automatisch neu hergestellt.</div>
 </div>
 
 </body>

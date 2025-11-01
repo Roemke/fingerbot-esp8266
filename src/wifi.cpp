@@ -9,6 +9,8 @@ String wifiMode;
 String wifiMacAp;
 String wifiMacSta;
 
+//daten werden im EEPROM gespeichert, historisch, ich hatte damit angefangen, bin später aber 
+//auf LittleFS umgestiegen für die Servodaten
 static void saveWifiData() {
     EEPROM.begin(sizeof(WifiData));
     EEPROM.put(EEPROM_WIFI_ADDR, wifiData);
@@ -72,6 +74,8 @@ void wifiSetup() {
         if (WiFi.status() == WL_CONNECTED) {
             logPrintf("\nVerbunden, IP: %s\n", WiFi.localIP().toString().c_str());
             wifiMode = "client-Modus, IP " + WiFi.localIP().toString();
+            WiFi.setSleep(false);
+            WiFi.setAutoReconnect(true);
             return;
         }
     }
@@ -84,7 +88,8 @@ void wifiSetup() {
     WiFi.mode(WIFI_AP);
     logPrintln("AP-Modus gesetzt");
     delay(1000);
-    
+    WiFi.setSleep(false);
+    WiFi.setAutoReconnect(true);
     // Vereinfachte AP-Konfiguration
     bool success = WiFi.softAP("Fingerbot");
     logPrintf("AP Erfolg: %d\n", success);

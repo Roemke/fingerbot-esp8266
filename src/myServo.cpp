@@ -89,11 +89,8 @@ void saveServoData() {
 void loadServoData() {
   servoData = ServoData(); // Defaults setzen, falls was schiefgeht
 
-  if (!LittleFS.begin()) {
-    logPrintln("❌ LittleFS Mount fehlgeschlagen!");
-    return;
-  }
 
+  //littleFS mounten muss schon geschenen sein, mache es einmal in Setup
   if (!LittleFS.exists("/servodata.json")) {
     logPrintln("⚠️ Keine servodata.json gefunden – Standardwerte verwenden");
     saveServoData();
