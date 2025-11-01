@@ -171,7 +171,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 
       String lastActionString = (lastAction == RAUS) ? "raus" :
                                   (lastAction == REIN) ? "rein" :
-                                  (lastAction == STOPPEN) ? "stoppen" : "keine";
+                                  (lastAction == STOPPEN) ? "stop" : "keine";
       mqtt.publishLastCmd(lastActionString); // MQTT informieren
       informClients(action, value);
 
@@ -310,7 +310,7 @@ void onMqttCommand(const String& cmd)
     }
     String lastActionString = (lastAction == RAUS) ? "raus" :
                                   (lastAction == REIN) ? "rein" :
-                                  (lastAction == STOPPEN) ? "stoppen" : "keine"; 
+                                  (lastAction == STOPPEN) ? "stop" : "keine"; 
     mqtt.publishLastCmd(lastActionString); // MQTT informieren
 
         
