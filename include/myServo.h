@@ -12,6 +12,7 @@ struct ServoData {
     int stopActive=135;
     int stopInactive=90;
     int timePress = 1000; //Zeit Taste gedrückt halten (ms)
+    unsigned long moveInterval = 10; // Zeit Pause zwischen Servobewegungen (ms), long nicht nötg, aber sonst warning
     int servoPinUpDown = 14; // D5
     int servoPinStop = 12; // D6
   };
@@ -19,7 +20,6 @@ struct ServoData {
     int target = 90;     // Zielwinkel
     int current = 90;    // aktueller Winkel
     unsigned long lastMove = 0; // Zeit des letzten write
-    int moveInterval = 10;      // Millisekunden zwischen zwei Bewegungen
   };
   extern ServoData servoData;
   extern ServoControl servoUpDown,servoStop;

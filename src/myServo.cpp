@@ -20,21 +20,26 @@ ServoData servoData;
 ServoControl servoUpDown,servoStop;
 
 
-//langsamere Servo Bewegung
+//langsamere Servo Bewegung - hatte Probleme mit der Steuerung, kann aber sein, dass dies vor der 
+//Nutzung der Servo-Klasse war. Ich weiß nicht, ob das noch sinnvoll ist, nimmt man es heraus, s. u. mit 
+//dem direkten Setzen des current-Wertes, dann bewegt er sich schon sehr ruckartig.
+//mache die Zeit mal konfigurierbar und behalte das so bei. ChatGPT findet ein paar punkte dafür, ein paar dagegen, 
+//ich mache die Zeit einfach konfgurierbar. 
 void updateServo(unsigned long &releaseButtonAt, unsigned long &releaseStopButtonAt) {
   unsigned long now = millis();  
   
-  if (servoUpDown.current != servoUpDown.target && now - servoUpDown.lastMove >= servoUpDown.moveInterval) {
+  if (servoUpDown.current != servoUpDown.target && now - servoUpDown.lastMove >= servoData.moveInterval) {
       servoUpDown.lastMove = now;
       if (servoUpDown.target > servoUpDown.current) servoUpDown.current++;
       else if (servoUpDown.target < servoUpDown.current) servoUpDown.current--;      
+      //servoUpDown.current=servoUpDown.target;//test, führt zum Absturz, hmm einmal, gibt eigentlich keinen Grund
       //logPrintf("write UpDown: %d -> %d\n", servoUpDown.current, servoUpDown.target);      
       myServoUpDown.write(servoUpDown.current);
       if (servoUpDown.current == servoUpDown.target)
         releaseButtonAt = millis() + servoData.timePress;
   
   }
-  if (servoStop.current != servoStop.target && now - servoStop.lastMove >= servoStop.moveInterval) {
+  if (servoStop.current != servoStop.target && now - servoStop.lastMove >= servoData.moveInterval) {
       servoStop.lastMove = now;
       if (servoStop.target > servoStop.current) servoStop.current++;
       else if (servoStop.target < servoStop.current) servoStop.current--;      
@@ -67,13 +72,14 @@ void saveServoData() {
     return;
   }
 
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   doc["left"]         = servoData.left;
   doc["middle"]       = servoData.middle;
   doc["right"]        = servoData.right;
   doc["stopActive"]   = servoData.stopActive;
   doc["stopInactive"] = servoData.stopInactive;
   doc["timePress"]    = servoData.timePress;
+  doc["moveInterval"]    = servoData.moveInterval;
   doc["servoPinUpDown"] = servoData.servoPinUpDown;
   doc["servoPinStop"]   = servoData.servoPinStop;
 
@@ -103,7 +109,7 @@ void loadServoData() {
     return;
   }
 
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, f);
   f.close();
 
@@ -119,6 +125,7 @@ void loadServoData() {
   servoData.stopActive     = doc["stopActive"]     | servoData.stopActive;
   servoData.stopInactive   = doc["stopInactive"]   | servoData.stopInactive;
   servoData.timePress      = doc["timePress"]      | servoData.timePress;
+  servoData.moveInterval   = doc["moveInterval"]   | servoData.moveInterval;
   servoData.servoPinUpDown = doc["servoPinUpDown"] | servoData.servoPinUpDown;
   servoData.servoPinStop   = doc["servoPinStop"]   | servoData.servoPinStop;
 

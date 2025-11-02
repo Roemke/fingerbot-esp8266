@@ -49,6 +49,8 @@ String processor(const String& var)
     result = String(servoData.stopInactive);
   else if (var == "TIME_PRESS") 
     result = String(servoData.timePress);
+  else if (var == "MOVE_INTERVAL") 
+    result = String(servoData.moveInterval);
   else if (var == "SERVO_PIN_UPDOWN") 
     result = String(servoData.servoPinUpDown);
   else if (var == "SERVO_PIN_STOP") 
@@ -219,6 +221,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
       servoData.servoPinStop = value.as<int>();
     else if(action == "timePress")
       servoData.timePress = value.as<int>();
+    else if(action == "moveInterval")
+      servoData.moveInterval = value.as<int>();
     if (action == "servoLeft" || action == "servoMiddle" || action == "servoRight" )
       servoUpDown.target = value.as<int>();
     else if (action == "servoStopActive" || action == "servoStopInactive")

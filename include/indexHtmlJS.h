@@ -94,7 +94,7 @@ function initWebSocket() {
           [
             "servoLeft","servoMiddle","servoRight",
             "servoStopActive","servoStopInactive",
-            "timePress","servoPinUpDown","servoPinStop"
+            "timePress","moveInterval","servoPinUpDown","servoPinStop"
           ].forEach(id => {
               if (data[id] !== undefined) 
               {
@@ -171,11 +171,11 @@ function initUI() {
     });
 
     // Pins + Zeit
-    ["servoPinUpDown","servoPinStop","timePress"].forEach(id => {
+    ["servoPinUpDown","servoPinStop","timePress","moveInterval"].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         el.addEventListener("change", e => sendAction(id, e.target.value));
-        if (id === "timePress") {
+        if (id === "timePress" || id === "moveInterval") {
             el.addEventListener("input", e => actualizeNumerics(id, e.target.value));
         }
     });
@@ -255,6 +255,10 @@ window.addEventListener("load", initUI);
   <div class="slider-container">
     <label for="timePress">Zeit Buttondruck (ms) <span id="timePressVal">%TIME_PRESS%</span></label>
     <input type="range" min="1" max="5000" value="%TIME_PRESS%" id="timePress">
+  </div>
+  <div class="slider-container">
+    <label for="moveInterval">Zeit Pause zwischen Servobewegung(ms) <span id="moveIntervalVal">%MOVE_INTERVAL%</span></label>
+    <input type="range" min="0" max="15" value="%MOVE_INTERVAL%" id="moveInterval">
   </div>
   <div class="slider-container">
     <label for="servoPinUpDown">Servo Pin Up/Down</label>
