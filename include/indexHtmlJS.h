@@ -94,7 +94,7 @@ function initWebSocket() {
           [
             "servoLeft","servoMiddle","servoRight",
             "servoStopActive","servoStopInactive",
-            "timePress","moveInterval","servoPinUpDown","servoPinStop"
+            "timePress","angleMoveStep","servoPinUpDown","servoPinStop"
           ].forEach(id => {
               if (data[id] !== undefined) 
               {
@@ -171,11 +171,11 @@ function initUI() {
     });
 
     // Pins + Zeit
-    ["servoPinUpDown","servoPinStop","timePress","moveInterval"].forEach(id => {
+    ["servoPinUpDown","servoPinStop","timePress","angleMoveStep"].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         el.addEventListener("change", e => sendAction(id, e.target.value));
-        if (id === "timePress" || id === "moveInterval") {
+        if (id === "timePress" || id === "angleMoveStep") {
             el.addEventListener("input", e => actualizeNumerics(id, e.target.value));
         }
     });
@@ -257,8 +257,8 @@ window.addEventListener("load", initUI);
     <input type="range" min="1" max="5000" value="%TIME_PRESS%" id="timePress">
   </div>
   <div class="slider-container">
-    <label for="moveInterval">Zeit Pause zwischen Servobewegung(ms) <span id="moveIntervalVal">%MOVE_INTERVAL%</span></label>
-    <input type="range" min="0" max="15" value="%MOVE_INTERVAL%" id="moveInterval">
+    <label for="angleMoveStep">Schrittweite Winkel Servo (in Grad) <span id="angleMoveStepVal">%ANGLE_MOVE_STEP%</span></label>
+    <input type="range" min="1" max="20" value="%ANGLE_MOVE_STEP%" id="angleMoveStep">
   </div>
   <div class="slider-container">
     <label for="servoPinUpDown">Servo Pin Up/Down</label>

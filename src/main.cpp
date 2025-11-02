@@ -49,8 +49,8 @@ String processor(const String& var)
     result = String(servoData.stopInactive);
   else if (var == "TIME_PRESS") 
     result = String(servoData.timePress);
-  else if (var == "MOVE_INTERVAL") 
-    result = String(servoData.moveInterval);
+  else if (var == "ANGLE_MOVE_STEP") 
+    result = String(servoData.angleMoveStep);     
   else if (var == "SERVO_PIN_UPDOWN") 
     result = String(servoData.servoPinUpDown);
   else if (var == "SERVO_PIN_STOP") 
@@ -96,6 +96,7 @@ void initialInformClient(AsyncWebSocketClient *client)
   doc["servoStopActive"] = servoData.stopActive;
   doc["servoStopInactive"] = servoData.stopInactive;
   doc["timePress"] = servoData.timePress;
+  doc["angleMoveStep"] = servoData.angleMoveStep;
   doc["servoPinUpDown"] = servoData.servoPinUpDown;
   doc["servoPinStop"] = servoData.servoPinStop;
   doc["buttonState"] = (buttonState == UP) ? "up" :
@@ -221,8 +222,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
       servoData.servoPinStop = value.as<int>();
     else if(action == "timePress")
       servoData.timePress = value.as<int>();
-    else if(action == "moveInterval")
-      servoData.moveInterval = value.as<int>();
+    else if(action == "angleMoveStep")
+      servoData.angleMoveStep = value.as<int>();
     if (action == "servoLeft" || action == "servoMiddle" || action == "servoRight" )
       servoUpDown.target = value.as<int>();
     else if (action == "servoStopActive" || action == "servoStopInactive")
